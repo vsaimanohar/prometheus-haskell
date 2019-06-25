@@ -44,12 +44,12 @@ instance (MonadMonitor m) => MonadMonitor (ExceptT e m)
 instance (MonadMonitor m) => MonadMonitor (IdentityT m)
 instance (MonadMonitor m) => MonadMonitor (MaybeT m)
 instance (MonadMonitor m, Monoid w) => MonadMonitor (L.RWST r w s m)
-instance (MonadMonitor m, Monoid w) => MonadMonitor (S.RWST r w s m) 
+instance (MonadMonitor m, Monoid w) => MonadMonitor (S.RWST r w s m)
 instance (MonadMonitor m) => MonadMonitor (ReaderT r m)
 instance (MonadMonitor m) => MonadMonitor (L.StateT s m)
-instance (MonadMonitor m) => MonadMonitor (S.StateT s m) 
+instance (MonadMonitor m) => MonadMonitor (S.StateT s m)
 instance (MonadMonitor m, Monoid w) => MonadMonitor (L.WriterT w m)
-instance (MonadMonitor m, Monoid w) => MonadMonitor (S.WriterT w m) 
+instance (MonadMonitor m, Monoid w) => MonadMonitor (S.WriterT w m)
 
 -- | Monitor allows the use of Prometheus metrics in pure code. When using
 -- Monitor, all of the metric operations will be collected and queued into

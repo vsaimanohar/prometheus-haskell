@@ -21,8 +21,8 @@ spec = describe "Prometheus.Metric.Histogram" $ do
 {-# NOINLINE testMetric #-}
 testMetric :: Histogram
 testMetric = do
-  unsafeRegister $ histogram (Info "test_histogram" "")  defaultBuckets
-  
+  unsafeRegister "foo" $ histogram (Info "test_histogram" "")  defaultBuckets
+
 observeToUnsafe :: Spec
 observeToUnsafe =
   it "Is able to observe to a top-level 'unsafeRegister' metric" $ do

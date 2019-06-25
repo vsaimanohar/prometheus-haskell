@@ -22,14 +22,14 @@ import Test.QuickCheck
 
 spec :: Spec
 spec = describe "Prometheus.Metric.Summary" $ do
-    observeToUnsafe 
+    observeToUnsafe
     let windowSize = 10000
     it "computes quantiles correctly for [0,10000) in order" $ do
-        m <- register $ summary (Info "name" "help") quantiles
+        m <- register "foo" $ summary (Info "name" "help") quantiles
         mapM_ (m `observe`) [0..(windowSize - 1)]
         checkQuantiles m windowSize =<< getQuantiles quantiles m
     it "computes quantiles correctly for [0,10000) in random order" $ do
-        m <- register $ summary (Info "name" "help") quantiles
+        m <- register "foo" $ summary (Info "name" "help") quantiles
         observations <- shuffleM [0..(windowSize - 1)]
         mapM_ (m `observe`) observations
         checkQuantiles m windowSize =<< getQuantiles quantiles m
@@ -41,7 +41,7 @@ spec = describe "Prometheus.Metric.Summary" $ do
     replicateM_ 50 $ do
         observations <- runIO $ shuffleM [0..(smallWindowSize - 1)]
         it ("computes quantiles correctly for " ++ show observations) $ do
-            m <- register $ summary (Info "name" "help") quantiles
+            m <- register "foo" $ summary (Info "name" "help") quantiles
             mapM_ (m `observe`) observations
             checkQuantiles m smallWindowSize =<< getQuantiles quantiles m
     context "Maintains invariants" invariantTests
@@ -49,18 +49,18 @@ spec = describe "Prometheus.Metric.Summary" $ do
       checkBadObservations observations =
         it ("computes quantiles correctly for " ++ show observations) $ do
             let windowSize = fromIntegral $ length observations
-            m <- register $ summary (Info "name" "help") quantiles
+            m <- register "foo" $ summary (Info "name" "help") quantiles
             mapM_ (m `observe`) observations
             checkQuantiles m windowSize =<< getQuantiles quantiles m
 
 {-# NOINLINE testMetric #-}
 testMetric :: Summary
 testMetric = do
-  unsafeRegister $ summary (Info "test_histogram" "") quantiles
-  
+  unsafeRegister "foo" $ summary (Info "test_histogram" "") quantiles
+
 observeToUnsafe :: Spec
 observeToUnsafe =
-  it "Is able to observe to a top-level 'unsafeRegister' metric" $ do
+  it "Is able to observe to a top-level 'unsaferegister' metric" $ do
     observe testMetric 1 `shouldReturn` ()
 
 

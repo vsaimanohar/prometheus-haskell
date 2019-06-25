@@ -9,34 +9,38 @@ import Prometheus
 import Test.Hspec
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
+import Data.Text (Text)
+
+ns :: Text
+ns = "foo"
 
 spec :: Spec
-spec = before_ unregisterAll $ after_ unregisterAll $
+spec = before_ (unregisterAll ns) $ after_ (unregisterAll ns) $
   describe "Prometheus.Export.Text.exportMetricsAsText" $ do
       it "renders counters" $ do
-            m <- register $ counter (Info "test_counter" "help string")
+            m <- register ns $ counter (Info "test_counter" "help string")
             incCounter m
-            result <- exportMetricsAsText
+            result <- exportMetricsAsText ns
             result `shouldBe` LT.encodeUtf8 (LT.pack $ unlines [
                     "# HELP test_counter help string"
                 ,   "# TYPE test_counter counter"
                 ,   "test_counter 1.0"
                 ])
       it "renders gauges" $ do
-            m <- register $ gauge (Info "test_gauge" "help string")
+            m <- register ns $ gauge (Info "test_gauge" "help string")
             setGauge m 47
-            result <- exportMetricsAsText
+            result <- exportMetricsAsText ns
             result `shouldBe` LT.encodeUtf8 (LT.pack $ unlines [
                     "# HELP test_gauge help string"
                 ,   "# TYPE test_gauge gauge"
                 ,   "test_gauge 47.0"
                 ])
       it "renders summaries" $ do
-            m <- register $ summary (Info "metric" "help") defaultQuantiles
+            m <- register ns $ summary (Info "metric" "help") defaultQuantiles
             observe m 1
             observe m 1
             observe m 1
-            result <- exportMetricsAsText
+            result <- exportMetricsAsText ns
             result `shouldBe` LT.encodeUtf8 (LT.pack $ unlines [
                     "# HELP metric help"
                 ,   "# TYPE metric summary"
@@ -47,11 +51,11 @@ spec = before_ unregisterAll $ after_ unregisterAll $
                 ,   "metric_count 3"
                 ])
       it "renders histograms" $ do
-            m <- register $ histogram (Info "metric" "help") defaultBuckets
+            m <- register ns $ histogram (Info "metric" "help") defaultBuckets
             observe m 1.0
             observe m 1.0
             observe m 1.0
-            result <- exportMetricsAsText
+            result <- exportMetricsAsText ns
             result `shouldBe` LT.encodeUtf8 (LT.pack $ unlines [
                     "# HELP metric help"
                 ,   "# TYPE metric histogram"
@@ -71,18 +75,18 @@ spec = before_ unregisterAll $ after_ unregisterAll $
                 ,   "metric_count 3"
                 ])
       it "renders vectors" $ do
-            m <- register $ vector ("handler", "method")
+            m <- register ns $ vector ("handler", "method")
                           $ counter (Info "test_counter" "help string")
-            withLabel m ("root", "GET") incCounter 
-            result <- exportMetricsAsText
+            withLabel m ("root", "GET") incCounter
+            result <- exportMetricsAsText ns
             result `shouldBe` LT.encodeUtf8 (LT.pack $ unlines [
                     "# HELP test_counter help string"
                 ,   "# TYPE test_counter counter"
                 ,   "test_counter{handler=\"root\",method=\"GET\"} 1.0"
                 ])
       it "escapes newlines and slashes from help strings" $ do
-            _ <- register $ counter (Info "metric" "help \n \\string")
-            result <- exportMetricsAsText
+            _ <- register ns $ counter (Info "metric" "help \n \\string")
+            result <- exportMetricsAsText ns
             result `shouldBe` LT.encodeUtf8 (LT.pack $ unlines [
                     "# HELP metric help \\n \\\\string"
                 ,   "# TYPE metric counter"

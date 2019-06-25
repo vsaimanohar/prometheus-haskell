@@ -36,9 +36,9 @@ import qualified Data.Text.Encoding as T
 -- # HELP my_counter Example counter
 -- # TYPE my_counter counter
 -- my_counter 1.0
-exportMetricsAsText :: MonadIO m => m BS.ByteString
-exportMetricsAsText = do
-    samples <- collectMetrics
+exportMetricsAsText :: MonadIO m => T.Text -> m BS.ByteString
+exportMetricsAsText ns = do
+    samples <- collectMetrics ns
     return $ Build.toLazyByteString $ foldMap exportSampleGroup samples
 
 exportSampleGroup :: SampleGroup -> Build.Builder
