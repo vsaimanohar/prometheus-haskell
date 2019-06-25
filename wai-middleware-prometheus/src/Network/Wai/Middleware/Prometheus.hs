@@ -13,12 +13,12 @@ module Network.Wai.Middleware.Prometheus
   , instrumentApp
   , instrumentIO
   , observeSeconds
-  , metricsApp
   ) where
 
 import qualified Data.Default as Default
 import Data.Maybe (fromMaybe)
 import Data.Ratio ((%))
+import Data.List (intersperse)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding (decodeUtf8)
@@ -31,25 +31,14 @@ import System.Clock (Clock(..), TimeSpec, diffTimeSpec, getTime, toNanoSecs)
 
 -- | Settings that control the behavior of the Prometheus middleware.
 data PrometheusSettings = PrometheusSettings {
-        prometheusEndPoint             :: [T.Text]
+        prometheusEndPointPrefix             :: Text
         -- ^ The path that will be used for exporting metrics. The default value
         -- is ["metrics"] which corresponds to the path /metrics.
-    ,   prometheusInstrumentApp        :: Bool
-        -- ^ Whether the default instrumentation should be applied to the
-        -- application. If this is set to false the application can still be
-        -- instrumented using the 'instrumentApp' function. The default value is
-        -- True.
-    ,   prometheusInstrumentPrometheus :: Bool
-        -- ^ Whether the default instrumentation should be applied to the
-        -- middleware that serves the metrics endpoint. The default value is
-        -- True.
     }
 
 instance Default.Default PrometheusSettings where
     def = PrometheusSettings {
-        prometheusEndPoint             = ["metrics"]
-    ,   prometheusInstrumentApp        = True
-    ,   prometheusInstrumentPrometheus = True
+        prometheusEndPointPrefix = "metrics"
     }
 
 {-# NOINLINE requestLatency #-}
@@ -160,29 +149,19 @@ observeSeconds handler method status start end = do
 -- metrics (e.g. request latency).
 prometheus :: PrometheusSettings -> Wai.Middleware
 prometheus PrometheusSettings{..} app req respond =
-    if     Wai.requestMethod req == HTTP.methodGet
-        && Wai.pathInfo req == prometheusEndPoint
-        -- XXX: Should probably be "metrics" rather than "prometheus", since
-        -- "prometheus" can be confused with actual prometheus.
+    if Wai.requestMethod req == HTTP.methodGet
     then
-      if prometheusInstrumentPrometheus
-        then instrumentApp "prometheus" (const respondWithMetrics) req respond
-        else respondWithMetrics respond
+      case Wai.pathInfo req of
+        (prometheusEndPointPrefix : xs) -> respondWithMetrics respond xs
+        _ -> app req respond
     else
-      if prometheusInstrumentApp
-        then instrumentApp "app" app req respond
-        else app req respond
-
-
--- | WAI Application that serves the Prometheus metrics page regardless of
--- what the request is.
-metricsApp :: Wai.Application
-metricsApp = const respondWithMetrics
+        app req respond
 
 respondWithMetrics :: (Wai.Response -> IO Wai.ResponseReceived)
+                   -> [Text]
                    -> IO Wai.ResponseReceived
-respondWithMetrics respond = do
-    metrics <- Prom.exportMetricsAsText
+respondWithMetrics respond ns = do
+    metrics <- Prom.exportMetricsAsText (intersperse "/" ns)
     respond $ Wai.responseLBS HTTP.status200 headers metrics
     where
         headers = [(HTTP.hContentType, "text/plain; version=0.0.4")]
