@@ -161,7 +161,7 @@ respondWithMetrics :: (Wai.Response -> IO Wai.ResponseReceived)
                    -> [Text]
                    -> IO Wai.ResponseReceived
 respondWithMetrics respond ns = do
-    metrics <- Prom.exportMetricsAsText (intersperse "/" ns)
+    metrics <- Prom.exportMetricsAsText (T.unwords $ intersperse "/" ns)
     respond $ Wai.responseLBS HTTP.status200 headers metrics
     where
         headers = [(HTTP.hContentType, "text/plain; version=0.0.4")]
