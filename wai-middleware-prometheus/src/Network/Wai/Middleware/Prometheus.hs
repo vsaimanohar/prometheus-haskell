@@ -43,10 +43,12 @@ instance Default.Default PrometheusSettings where
 
 {-# NOINLINE requestLatency #-}
 requestLatency :: Prom.Vector Prom.Label3 Prom.Histogram
-requestLatency = Prom.unsafeRegister $ Prom.vector ("handler", "method", "status_code")
-                                     $ Prom.histogram info Prom.defaultBuckets
-    where info = Prom.Info "http_request_duration_seconds"
-                           "The HTTP request latencies in seconds."
+requestLatency =
+  Prom.unsafeRegister "wai/requests"
+    $ Prom.vector ("handler", "method", "status_code")
+    $ Prom.histogram info Prom.defaultBuckets
+  where info = Prom.Info "http_request_duration_seconds"
+                          "The HTTP request latencies in seconds."
 
 -- | This function is used to populate the @handler@ label of all Prometheus metrics recorded by this library.
 --
