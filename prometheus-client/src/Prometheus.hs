@@ -10,6 +10,7 @@ module Prometheus (
 ,   unsafeRegister
 ,   unregisterAll
 ,   collectMetrics
+,   availableNamespaces
 
 -- * Exporting
 
@@ -57,7 +58,7 @@ module Prometheus (
 -- set the value of a gauge as well as add and subtract arbitrary values.
 --
 -- >>> myGauge <- register $ gauge (Info "my_gauge" "An example gauge")
--- >>> setGauge myGauge 100 
+-- >>> setGauge myGauge 100
 -- >>> addGauge myGauge 50
 -- >>> subGauge myGauge 25
 -- >>> getGauge myGauge
@@ -113,7 +114,7 @@ module Prometheus (
 -- summaries in that they can be meaningfully aggregated across processes.
 --
 -- >>> myHistogram <- register $ histogram (Info "my_histogram" "") defaultBuckets
--- >>> observe myHistogram 0 
+-- >>> observe myHistogram 0
 -- >>> getHistogram myHistogram
 -- fromList [(5.0e-3,1),(1.0e-2,0),(2.5e-2,0),(5.0e-2,0),(0.1,0),(0.25,0),(0.5,0),(1.0,0),(2.5,0),(5.0,0),(10.0,0)]
 ,   Histogram
@@ -129,11 +130,11 @@ module Prometheus (
 -- partitioned across a set of dimensions.
 --
 -- >>> myVector <- register $ vector ("method", "code") $ counter (Info "http_requests" "")
--- >>> withLabel myVector ("GET", "200") incCounter 
--- >>> withLabel myVector ("GET", "200") incCounter 
--- >>> withLabel myVector ("GET", "404") incCounter 
--- >>> withLabel myVector ("POST", "200") incCounter 
--- >>> getVectorWith myVector getCounter 
+-- >>> withLabel myVector ("GET", "200") incCounter
+-- >>> withLabel myVector ("GET", "200") incCounter
+-- >>> withLabel myVector ("GET", "404") incCounter
+-- >>> withLabel myVector ("POST", "200") incCounter
+-- >>> getVectorWith myVector getCounter
 -- [(("GET","200"),2.0),(("GET","404"),1.0),(("POST","200"),1.0)]
 -- >>> exportMetricsAsText >>= Data.ByteString.Lazy.putStr
 -- # HELP http_requests

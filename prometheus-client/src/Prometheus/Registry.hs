@@ -6,6 +6,7 @@ module Prometheus.Registry (
 ,   unsafeRegisterIO
 ,   collectMetrics
 ,   unregisterAll
+,   availableNamespaces
 ) where
 
 import Prometheus.Metric
@@ -79,3 +80,10 @@ collectMetrics :: MonadIO m => T.Text -> m [SampleGroup]
 collectMetrics ns = liftIO $ do
     registry <- STM.atomically $ STM.readTVar globalRegistry
     concat <$> sequence (fromMaybe mempty $ Map.lookup ns registry)
+
+-- | All available metric namespaces at this point of time.
+availableNamespaces :: MonadIO m => m [ T.Text ]
+availableNamespaces =
+  liftIO $
+    STM.atomically $
+      Map.keys <$> STM.readTVar globalRegistry

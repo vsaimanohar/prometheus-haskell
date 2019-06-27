@@ -21,7 +21,9 @@ import Data.Ratio ((%))
 import Data.List (intersperse)
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Data.Text.Encoding (decodeUtf8)
+import Data.Text.Lazy.Encoding (encodeUtf8)
 import qualified Network.HTTP.Types as HTTP
 import qualified Network.Wai as Wai
 import qualified Network.Wai.Internal as Wai (Response(ResponseRaw))
@@ -154,16 +156,29 @@ prometheus PrometheusSettings{..} app req respond =
     if Wai.requestMethod req == HTTP.methodGet
     then
       case Wai.pathInfo req of
-        (prometheusEndPointPrefix : xs) -> respondWithMetrics respond xs
+        (prometheusEndPointPrefix : xs) ->
+          case xs of
+            [] -> respondWithAvailableRoutes respond
+            xss -> respondWithMetrics respond xss
         _ -> app req respond
     else
         app req respond
+
+respondWithAvailableRoutes :: (Wai.Response -> IO Wai.ResponseReceived) -> IO Wai.ResponseReceived
+respondWithAvailableRoutes respond = do
+  ns <- Prom.availableNamespaces
+  respond $
+    Wai.responseLBS HTTP.status200 headers $
+      encodeUtf8 $
+        TL.fromStrict (T.unlines ns)
+  where
+    headers = [(HTTP.hContentType, "text/plain; version=0.0.4")]
 
 respondWithMetrics :: (Wai.Response -> IO Wai.ResponseReceived)
                    -> [Text]
                    -> IO Wai.ResponseReceived
 respondWithMetrics respond ns = do
-    metrics <- Prom.exportMetricsAsText (T.unwords $ intersperse "/" ns)
+    metrics <- Prom.exportMetricsAsText (T.concat $ intersperse "/" ns)
     respond $ Wai.responseLBS HTTP.status200 headers metrics
     where
         headers = [(HTTP.hContentType, "text/plain; version=0.0.4")]
