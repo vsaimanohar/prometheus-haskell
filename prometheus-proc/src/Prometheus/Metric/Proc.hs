@@ -3,6 +3,7 @@
 {-# language OverloadedStrings #-}
 {-# language RecordWildCards #-}
 {-# language ViewPatterns #-}
+{-# language TypeApplications #-}
 
 {-|
 
@@ -45,9 +46,12 @@ Unregistered metrics for the current process. This is to be used with
 This exports the following:
 
 
+* @process_cpu_user_seconds_total@
+* @process_cpu_system_seconds_total@
 * @process_cpu_seconds_total@
 * @process_start_time_seconds@
 * @process_virtual_memory_bytes@
+* @process_resident_memory_bytes@
 * @process_resident_memory_bytes@
 
 See the official Prometheus documentation for more information on these standard
@@ -72,6 +76,9 @@ collect = do
   mprocStat <-
       RE.match parseProcStat . unpack <$> readFile ( procPidDir pid </> "stat" )
 
+  mProcHeapSize <-
+    collectHeapSize pid
+
   processOpenFds <-
     collectProcessOpenFds pid
 
@@ -81,6 +88,7 @@ collect = do
   return
     ( [ processOpenFds ]
         <> maybeToList processMaxFds
+        <> maybeToList mProcHeapSize
         <> foldMap ( procStatToMetrics ) mprocStat
     )
 
@@ -105,7 +113,28 @@ collectProcessMaxFds pid = do
                 "process_max_fds"
                 "Maximum number of open file descriptors."
                 GaugeType
-                ( read n :: Int )
+                ( read @Int n )
+            )
+        )
+
+    _ ->
+      return Nothing
+
+
+collectHeapSize :: ProcessID -> IO ( Maybe SampleGroup )
+collectHeapSize pid = do
+  statusLines <-
+    lines . unpack <$> readFile ( procPidDir pid </> "status" )
+
+  case filter ( "VmData:" `isPrefixOf` ) statusLines of
+    ( words -> _vmdata : dataSegmentSizeInKB : _ ) : _ ->
+      return
+        ( Just
+            ( metric
+                "process_heap_size_bytes"
+                "Process data segment size."
+                GaugeType
+                (read @Int dataSegmentSizeInKB * 1024)
             )
         )
 
@@ -121,13 +150,28 @@ procPidDir pid =
 procStatToMetrics :: ProcStat -> [ SampleGroup ]
 procStatToMetrics ProcStat{ utime, stime, starttime, vsize, rss } =
   catMaybes
-    [ Just process_cpu_seconds_total
+    [ Just process_cpu_user_seconds_total
+    , Just process_cpu_system_seconds_total
+    , Just process_cpu_seconds_total
     , process_start_time_seconds
     , Just process_virtual_memory_bytes
     , Just process_resident_memory_bytes
     ]
 
   where
+    process_cpu_user_seconds_total =
+      metric
+        "process_cpu_user_seconds_total"
+        "User CPU time spent in seconds."
+        CounterType
+        ( fromTicks ( utime ) )
+
+    process_cpu_system_seconds_total =
+      metric
+        "process_cpu_system_seconds_total"
+        "System CPU time spent in seconds."
+        CounterType
+        ( fromTicks ( stime ) )
 
     process_cpu_seconds_total =
       metric
