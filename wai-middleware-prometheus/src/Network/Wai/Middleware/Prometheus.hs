@@ -170,7 +170,7 @@ prometheus PrometheusSettings{..} app req respond =
         else respondWithMetrics respond
     else
       if prometheusInstrumentApp
-        then instrumentApp "app" app req respond
+        then instrumentApp (T.intercalate "/" $ Wai.pathInfo req) app req respond
         else app req respond
 
 
