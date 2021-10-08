@@ -1,5 +1,20 @@
 # Change Log
 
+## HEAD
+
+## 1.1.0 -- 2021-08-26
+
+- Replaced Summary implementation with `data-sketches` which should result in
+  significant performance improvements.
+
+## 1.0.1 -- 2020-07-26
+
+Expose the `Bucket` type
+
+## 1.0.0.1 -- 2020-05-27
+
+- Optimizations to improve memory usage.
+
 ## 1.0.0 -- 2018-08-10
 
 Version 1.0.0 is a significant rewrite of some core parts of the API, as
