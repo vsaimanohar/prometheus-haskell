@@ -173,7 +173,12 @@ module Prometheus (
 ,   Label7
 ,   Label8
 ,   Label9
-
+,   Label10
+,   Label11
+,   Label12
+,   Label13
+,   Label14
+,   Label15
 -- ** Custom metrics
 --
 -- | Custom metrics can be created by directly creating a new 'Metric' type. There
