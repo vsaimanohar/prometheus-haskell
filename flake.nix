@@ -5,18 +5,35 @@
     haskell-flake.url = "github:srid/haskell-flake";
   };
   outputs = inputs@{ self, nixpkgs, flake-parts, ... }:
-      systems = nixpkgs.lib.systems.flakeExposed;
     flake-parts.lib.mkFlake { inherit inputs; } ({ withSystem, ... }: {
+      systems = nixpkgs.lib.systems.flakeExposed;
       imports = [
         inputs.haskell-flake.flakeModule
       ];
       perSystem = { self', pkgs, ... }: {
         haskellProjects.default = { };
       };
-      flake.haskellFlakeProjectModules.output = { pkgs, lib, ... }: withSystem pkgs.system (ctx@{ config, ... }: {
-        source-overrides =
-          lib.mapAttrs (name: ks: ks.root)
-            config.haskellProjects.default.packages;
-      });
+      # TODO: Generalize and move to a new flake-parts module (or haskell-flake)
+      flake.haskellFlakeProjectModules = rec {
+        # Overlay consumed by this flake.
+        input = { pkgs, ... }: {
+          imports = [
+            # Flake input dependencies go here.
+          ];
+          # Haskell overrides go here.
+          overrides = self: super: { };
+        };
+        # Overlay exposed by this flake.
+        output = { pkgs, lib, ... }: withSystem pkgs.system (ctx@{ config, ... }: {
+          # Pass along the dependency overrides to consuming flake.
+          imports = [
+            input
+          ];
+          # Pass local packages, as overlay, to the consuming flake.
+          source-overrides =
+            lib.mapAttrs (name: ks: ks.root)
+              config.haskellProjects.default.packages;
+        });
+      };
     });
 }
