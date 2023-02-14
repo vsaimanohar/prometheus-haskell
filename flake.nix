@@ -11,7 +11,11 @@
         inputs.haskell-flake.flakeModule
       ];
       perSystem = { self', pkgs, ... }: {
-        haskellProjects.default = { };
+        haskellProjects.default = {
+          imports = [
+            self.haskellFlakeProjectModules.input
+          ];
+        };
       };
       # TODO: Generalize and move to a new flake-parts module (or haskell-flake)
       flake.haskellFlakeProjectModules = rec {
