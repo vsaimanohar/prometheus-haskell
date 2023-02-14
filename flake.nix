@@ -5,22 +5,18 @@
     haskell-flake.url = "github:srid/haskell-flake";
   };
   outputs = inputs@{ self, nixpkgs, flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
       systems = nixpkgs.lib.systems.flakeExposed;
+    flake-parts.lib.mkFlake { inherit inputs; } ({ withSystem, ... }: {
       imports = [
         inputs.haskell-flake.flakeModule
       ];
       perSystem = { self', pkgs, ... }: {
         haskellProjects.default = { };
       };
-      flake.haskellFlakeProjectModules.output = { pkgs, ... }: {
-        source-overrides = {
-          prometheus-client = ./prometheus-client;
-          prometheus-proc = ./prometheus-proc;
-          prometheus-metrics-ghc = ./prometheus-metrics-ghc;
-          wai-middleware-prometheus = ./wai-middleware-prometheus;
-          prometheus-haskell-example = ./example;
-        };
-      };
-    };
+      flake.haskellFlakeProjectModules.output = { pkgs, lib, ... }: withSystem pkgs.system (ctx@{ config, ... }: {
+        source-overrides =
+          lib.mapAttrs (name: ks: ks.root)
+            config.haskellProjects.default.packages;
+      });
+    });
 }
