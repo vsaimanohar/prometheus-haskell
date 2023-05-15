@@ -1,0 +1,5 @@
+packages:
+  prometheus-client
+  prometheus-metrics-ghc
+  prometheus-proc
+  wai-middleware-prometheus
