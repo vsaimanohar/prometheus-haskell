@@ -32,6 +32,8 @@ library
     , prometheus-client  >=1.0.0 && <1.1
     , text               >=0.11
     , wai                >=3.0
+    , zstd
+    , string-conversions
   ghc-options: -Wall
 
 test-suite doctest
