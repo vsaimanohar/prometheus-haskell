@@ -30,6 +30,7 @@ import qualified Prometheus as Prom
 import System.Clock (Clock(..), TimeSpec, diffTimeSpec, getTime, toNanoSecs)
 import Codec.Compression.Zstd (compress)
 import Data.String.Conversions (convertString)
+import Data.Maybe
 
 
 -- | Settings that control the behavior of the Prometheus middleware.
@@ -161,16 +162,16 @@ observeSeconds handler method status start end = do
 
 -- | Expose Prometheus metrics and instrument an application with some basic
 -- metrics (e.g. request latency).
-prometheus :: Int -> PrometheusSettings -> Wai.Middleware
-prometheus compressionLevel PrometheusSettings{..} app req respond =
+prometheus :: Maybe Int -> PrometheusSettings -> Wai.Middleware
+prometheus mbCompressionLevel PrometheusSettings{..} app req respond =
     if     Wai.requestMethod req == HTTP.methodGet
         && Wai.pathInfo req == prometheusEndPoint
         -- XXX: Should probably be "metrics" rather than "prometheus", since
         -- "prometheus" can be confused with actual prometheus.
     then
       if prometheusInstrumentPrometheus
-        then instrumentApp "prometheus" (const $ metricsResponse compressionLevel) req respond
-        else (metricsResponse compressionLevel) respond
+        then instrumentApp "prometheus" (const $ metricsResponse mbCompressionLevel) req respond
+        else (metricsResponse mbCompressionLevel) respond
     else
       if prometheusInstrumentApp
         then instrumentApp "app" app req respond
@@ -178,14 +179,14 @@ prometheus compressionLevel PrometheusSettings{..} app req respond =
 
 -- | WAI Application that serves the Prometheus metrics page regardless of
 -- what the request is.
-metricsApp :: Int -> Wai.Application
-metricsApp compressionLevel = const (metricsResponse compressionLevel) 
+metricsApp :: Maybe Int -> Wai.Application
+metricsApp mbCompressionLevel = const (metricsResponse mbCompressionLevel) 
 
-metricsResponse :: Int -> (Wai.Response -> IO Wai.ResponseReceived) 
+metricsResponse :: Maybe Int -> (Wai.Response -> IO Wai.ResponseReceived) 
                 -> IO Wai.ResponseReceived
-metricsResponse compressionLevel = do
-    if compressionLevel > 0 
-      then respondWithCompressedMetrics compressionLevel 
+metricsResponse mbCompressionLevel = do
+    if isJust mbCompressionLevel && mbCompressionLevel > Just 0 
+      then respondWithCompressedMetrics $ fromMaybe 1 mbCompressionLevel 
       else respondWithMetrics
 
 respondWithMetrics :: (Wai.Response -> IO Wai.ResponseReceived)
