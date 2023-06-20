@@ -37,7 +37,7 @@ import Data.Maybe
 
 data Compression
  = Zstd Int
- | GZip
+ | GZip Int
 
 -- | Settings that control the behavior of the Prometheus middleware.
 data PrometheusSettings = PrometheusSettings {
@@ -248,4 +248,4 @@ respondWithCompressedMetrics compression respond = do
                        Zstd n -> if n > 0 -- Throws error when compression level is 0.
                                     then convertString . Zstd.compress n . convertString $ m
                                     else m
-                       GZip   -> GZip.compress m
+                       GZip n -> GZip.compressWith (GZip.defaultCompressParams {GZip.compressLevel = GZip.CompressionLevel n}) m
