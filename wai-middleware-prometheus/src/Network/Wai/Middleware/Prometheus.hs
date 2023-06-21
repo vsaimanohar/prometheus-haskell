@@ -241,11 +241,12 @@ respondWithCompressedMetrics :: Compression -> (Wai.Response -> IO Wai.ResponseR
                              -> IO Wai.ResponseReceived
 respondWithCompressedMetrics compression respond = do
     metrics <- Prom.exportMetricsAsText
-    respond $ Wai.responseLBS HTTP.status200 headers (compress metrics)
+    let (contentTypeHeader, compressedRes) = compressAndGetHeader metrics
+    respond $ Wai.responseLBS HTTP.status200 (getHeaders contentTypeHeader) compressedRes
     where
-        headers = [(HTTP.hContentType, "text/plain; version=0.0.4")]
-        compress m = case compression of
-                       Zstd n -> if n > 0 -- Throws error when compression level is 0.
+        getHeaders contentTypeHeader = [(HTTP.hContentType, "text/plain; version=0.0.4"), contentTypeHeader]
+        compressAndGetHeader m = case compression of
+                       Zstd n -> (,) (HTTP.hContentEncoding, "zstd") $ if n > 0 -- Throws error when compression level is 0.
                                     then convertString . Zstd.compress n . convertString $ m
                                     else m
-                       GZip n -> GZip.compressWith (GZip.defaultCompressParams {GZip.compressLevel = GZip.CompressionLevel n}) m
+                       GZip n -> (,) (HTTP.hContentEncoding, "gzip") $ GZip.compressWith (GZip.defaultCompressParams {GZip.compressLevel = GZip.CompressionLevel n}) m
