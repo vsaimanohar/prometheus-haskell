@@ -10,7 +10,7 @@ module Network.Wai.Middleware.Prometheus
   , Default.def
   , instrumentHandlerValue
   , instrumentHandlerValueWithFilter
-  , instrumentHandlerValueWithVersionLabel
+  , instrumentHandlerValueWithLabels
   , ignoreRawResponses
   , instrumentApp
   , instrumentIO
@@ -72,9 +72,9 @@ requestLatency = Prom.unsafeRegister $ Prom.vector ("handler", "method", "status
     where info = Prom.Info "http_request_duration_seconds"
                            "The HTTP request latencies in seconds."
 
-{-# NOINLINE requestLatencyWithVersionLabel #-}
-requestLatencyWithVersionLabel :: Prom.Vector Prom.Label4 Prom.Histogram
-requestLatencyWithVersionLabel = Prom.unsafeRegister $ Prom.vector ("handler", "method", "status_code", "version")
+{-# NOINLINE requestLatencyWithLabels #-}
+requestLatencyWithLabels :: Prom.Vector Prom.Label5 Prom.Histogram
+requestLatencyWithLabels = Prom.unsafeRegister $ Prom.vector ("handler", "method", "status_code", "version", "priority")
                                                      $ Prom.histogram info Prom.defaultBuckets
     where info = Prom.Info "http_request_duration_seconds"
                            "The HTTP request latencies in seconds."
@@ -91,7 +91,7 @@ instrumentHandlerValue ::
      (Wai.Request -> Text) -- ^ The function used to derive the "handler" value in Prometheus
   -> Wai.Application -- ^ The app to instrument
   -> Wai.Application -- ^ The instrumented app
-instrumentHandlerValue = instrumentHandlerValueWithFilter Nothing Just
+instrumentHandlerValue = instrumentHandlerValueWithFilter Nothing Nothing Just
 
 -- | This function is used to populate the @handler@ label of all Prometheus metrics recorded by this library.
 --
@@ -102,22 +102,24 @@ instrumentHandlerValue = instrumentHandlerValueWithFilter Nothing Just
 --
 -- WARNING: If you have 'ResponseRaw' values in your API, consider using
 -- @instrumentHandlerValueWithFilter ignoreRawResponses@ instead.
-instrumentHandlerValueWithVersionLabel ::
+instrumentHandlerValueWithLabels ::
      Text -- ^ version label
+  -> Text
   -> (Wai.Request -> Text) -- ^ The function used to derive the "handler" value in Prometheus
   -> Wai.Application -- ^ The app to instrument
   -> Wai.Application -- ^ The instrumented app
-instrumentHandlerValueWithVersionLabel versionLabel = instrumentHandlerValueWithFilter (Just versionLabel) Just
+instrumentHandlerValueWithLabels versionLabel priority = instrumentHandlerValueWithFilter (Just versionLabel) (Just priority) Just
 
 -- | A more flexible variant of 'instrumentHandlerValue'.  The filter can change some
 -- responses, or drop others entirely.
 instrumentHandlerValueWithFilter ::
      Maybe Text -- ^ version label
+  -> Maybe Text -- ^ priority label
   -> (Wai.Response -> Maybe Wai.Response) -- ^ Response filter
   -> (Wai.Request -> Text) -- ^ The function used to derive the "handler" value in Prometheus
   -> Wai.Application -- ^ The app to instrument
   -> Wai.Application -- ^ The instrumented app
-instrumentHandlerValueWithFilter mbVersionLabel resFilter f app req respond = do
+instrumentHandlerValueWithFilter mbVersionLabel mbPriority resFilter f app req respond = do
   start <- getTime Monotonic
   app req $ \res -> do
     case resFilter res of
@@ -126,7 +128,7 @@ instrumentHandlerValueWithFilter mbVersionLabel resFilter f app req respond = do
         end <- getTime Monotonic
         let method = Just $ decodeUtf8 (Wai.requestMethod req)
         let status = Just $ T.pack (show (HTTP.statusCode (Wai.responseStatus res')))
-        observeSeconds mbVersionLabel (f req) method status start end
+        observeSeconds mbVersionLabel mbPriority (f req) method status start end
     respond res
 
 -- | 'Wai.ResponseRaw' values have two parts: an action that can be executed to construct a
@@ -176,29 +178,32 @@ instrumentIO label io = do
     start  <- getTime Monotonic
     result <- io
     end    <- getTime Monotonic
-    observeSeconds Nothing label Nothing Nothing start end
+    observeSeconds Nothing Nothing label Nothing Nothing start end
     return result
 
 -- | Record an event to the middleware metric.
 observeSeconds :: Maybe Text   -- ^ version label
+               -> Maybe Text   -- ^ priority label 
                -> Text         -- ^ handler label
                -> Maybe Text   -- ^ method
                -> Maybe Text   -- ^ status
                -> TimeSpec     -- ^ start time
                -> TimeSpec     -- ^ end time
                -> IO ()
-observeSeconds mbVersionLabel handler method status start end = do
+observeSeconds mbVersionLabel mbPriority handler method status start end = do
     let latency :: Double
         latency = fromRational $ toRational (toNanoSecs (end `diffTimeSpec` start) % 1000000000)
-    case mbVersionLabel of
-      Nothing -> do
+    case (mbVersionLabel, mbPriority) of
+      (Just versionLabel, Just priorityLabel)  -> do
+        Prom.withLabel requestLatencyWithLabels
+                       (handler, fromMaybe "" method, fromMaybe "" status, versionLabel, priorityLabel)
+                       (flip Prom.observe latency)  
+      _ -> do
         Prom.withLabel requestLatency
                        (handler, fromMaybe "" method, fromMaybe "" status)
-                       (flip Prom.observe latency)
-      Just versionLabel -> do
-        Prom.withLabel requestLatencyWithVersionLabel
-                       (handler, fromMaybe "" method, fromMaybe "" status, versionLabel)
-                       (flip Prom.observe latency)
+                       (flip Prom.observe latency)                          
+
+
 
 -- | Expose Prometheus metrics and instrument an application with some basic
 -- metrics (e.g. request latency).
